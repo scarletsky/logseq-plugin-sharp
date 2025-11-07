@@ -8,6 +8,8 @@
 - 调用配置的压缩服务器（`multipart/form-data` 字段名为 `image`）。
 - 展示原图与压缩图的大小、预览对比，并在用户确认后更新 block 内容。
 
+> 当前我们默认配套使用的压缩服务端为 [scarletsky/sharp-server](https://github.com/scarletsky/sharp-server)。你也可以在设置中更换为其他兼容同样接口的服务端实现。
+
 ## 运行截图
 
 ![插件设置面板，用户配置压缩服务器地址](docs/compress_settings.png)
