@@ -4,7 +4,7 @@ import React from "react";
 import * as ReactDOM from "react-dom/client";
 import App from "./App";
 import "./index.css";
-import { extractFirstImageInfo } from "./utils";
+import { extractFirstImageInfo, decodeFileNameSegment } from "./utils";
 
 import { logseq as PL } from "../package.json";
 
@@ -73,7 +73,9 @@ const MIME_MAP: Record<string, string> = {
 
 const guessMimeType = (path: string) => {
   const clean = path.toLowerCase().split(/[?#]/)[0];
-  const ext = clean.includes(".") ? clean.substring(clean.lastIndexOf(".") + 1) : clean;
+  const ext = clean.includes(".")
+    ? clean.substring(clean.lastIndexOf(".") + 1)
+    : clean;
   return MIME_MAP[ext] || "application/octet-stream";
 };
 
@@ -88,7 +90,8 @@ const blobToDataUrl = (blob: Blob) =>
   new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error ?? new Error("Failed to read blob"));
+    reader.onerror = () =>
+      reject(reader.error ?? new Error("Failed to read blob"));
     reader.readAsDataURL(blob);
   });
 
@@ -116,10 +119,15 @@ const getGraphAssetFileUrl = async (assetPath: string) => {
   const relativePath = assetPath.replace(/^assets\//i, "");
   const absolutePath = `${normalizedGraphDir}/assets/${relativePath}`;
   const encodedPath = encodeURI(absolutePath.replace(/\\/g, "/"));
-  return `file://${encodedPath.startsWith("/") ? encodedPath : `/${encodedPath}`}`;
+  return `file://${
+    encodedPath.startsWith("/") ? encodedPath : `/${encodedPath}`
+  }`;
 };
 
-const loadImageBlob = async (imageUrl: string, opts?: { blockUuid?: string }) => {
+const loadImageBlob = async (
+  imageUrl: string,
+  opts?: { blockUuid?: string }
+) => {
   if (!imageUrl || imageUrl.trim() === "") {
     throw new Error("Image URL is invalid");
   }
@@ -148,22 +156,33 @@ const loadImageBlob = async (imageUrl: string, opts?: { blockUuid?: string }) =>
   return { blob, previewUrl };
 };
 
+const normalizeFileNameCandidate = (input?: string | null) => {
+  if (!input) return null;
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  const decoded = decodeFileNameSegment(trimmed);
+  return decoded && decoded.trim() ? decoded.trim() : null;
+};
+
 const extractFileName = (pathOrUrl: string) => {
   if (!pathOrUrl) return "image";
   try {
     const url = new URL(pathOrUrl, "relative://");
     const pathname = url.pathname || pathOrUrl;
     const segments = pathname.split(/[\\/]/);
-    const candidate = segments.pop();
-    return candidate && candidate.trim() ? candidate : "image";
+    const candidate = normalizeFileNameCandidate(segments.pop());
+    return candidate || "image";
   } catch {
     const segments = pathOrUrl.split(/[\\/]/);
-    const candidate = segments.pop();
-    return candidate && candidate.trim() ? candidate : "image";
+    const candidate = normalizeFileNameCandidate(segments.pop());
+    return candidate || "image";
   }
 };
 
-const releaseBlock = (blockUuid: string, lastImageUrl: string | null = null) => {
+const releaseBlock = (
+  blockUuid: string,
+  lastImageUrl: string | null = null
+) => {
   if (!blockUuid) return;
   if (lastImageUrl) {
     processedBlocks.set(blockUuid, lastImageUrl);
@@ -190,9 +209,10 @@ async function proceedWithCompression(blockUuid: string, imageUrl: string) {
       throw new Error("Block no longer exists");
     }
 
-    const { blob: imageBlob, previewUrl: originalPreviewUrl } = await loadImageBlob(imageUrl, {
-      blockUuid,
-    });
+    const { blob: imageBlob, previewUrl: originalPreviewUrl } =
+      await loadImageBlob(imageUrl, {
+        blockUuid,
+      });
 
     const formData = new FormData();
     formData.append("image", imageBlob, extractFileName(imageUrl));
@@ -216,13 +236,15 @@ async function proceedWithCompression(blockUuid: string, imageUrl: string) {
 
     if (parsedJson && parsedJson.compressedUrl) {
       const compressedSize = parsedJson.size || "Unknown";
-      const compressedMime = parsedJson.mime || guessMimeFromUrl(parsedJson.compressedUrl);
+      const compressedMime =
+        parsedJson.mime || guessMimeFromUrl(parsedJson.compressedUrl);
       showComparisonDialog({
         blockUuid,
         originalUrl: imageUrl,
         originalPreviewUrl,
         compressedUrl: parsedJson.compressedUrl,
-        compressedPreviewUrl: parsedJson.compressedPreviewUrl || parsedJson.compressedUrl,
+        compressedPreviewUrl:
+          parsedJson.compressedPreviewUrl || parsedJson.compressedUrl,
         originalSize,
         compressedSize,
         compressedSourceType: "remote",
@@ -245,11 +267,17 @@ async function proceedWithCompression(blockUuid: string, imageUrl: string) {
         originalSize,
         compressedSize,
         compressedSourceType: "data-url",
-        compressedMime: compressedBlob.type || response.headers.get("content-type") || undefined,
+        compressedMime:
+          compressedBlob.type ||
+          response.headers.get("content-type") ||
+          undefined,
       });
     }
   } catch (error) {
-    logseq.UI.showMsg(`Compression failed: ${(error as Error).message}`, "error");
+    logseq.UI.showMsg(
+      `Compression failed: ${(error as Error).message}`,
+      "error"
+    );
     releaseBlock(blockUuid);
     logseq.updateSettings({ loadingData: null });
   }
@@ -301,66 +329,66 @@ function setupBlockWatcher() {
 }
 
 function main() {
-console.info(`#${pluginId}: MAIN`);
-const root = ReactDOM.createRoot(document.getElementById("app")!);
+  console.info(`#${pluginId}: MAIN`);
+  const root = ReactDOM.createRoot(document.getElementById("app")!);
 
-root.render(
-<React.StrictMode>
-    <App />
+  root.render(
+    <React.StrictMode>
+      <App />
     </React.StrictMode>
-);
+  );
 
-function createModel() {
-  return {
+  function createModel() {
+    return {
       show() {
-      logseq.showMainUI();
-    },
-};
-}
+        logseq.showMainUI();
+      },
+    };
+  }
 
-logseq.provideModel(createModel());
-logseq.setMainUIInlineStyle({
-zIndex: 11,
-});
+  logseq.provideModel(createModel());
+  logseq.setMainUIInlineStyle({
+    zIndex: 11,
+  });
 
   // Settings schema
-logseq.useSettingsSchema([
-  {
-  key: "serverUrl",
-  type: "string",
-title: "Compression Server URL",
-description: "URL of the server that handles image compression",
-default: "",
-},
-]);
+  logseq.useSettingsSchema([
+    {
+      key: "serverUrl",
+      type: "string",
+      title: "Compression Server URL",
+      description: "URL of the server that handles image compression",
+      default: "",
+    },
+  ]);
 
-logseq.updateSettings({
-  confirmationData: null,
-  comparisonData: null,
-  loadingData: null,
-  proceedCompression: null,
-  flowCompletion: null,
-});
+  logseq.updateSettings({
+    confirmationData: null,
+    comparisonData: null,
+    loadingData: null,
+    proceedCompression: null,
+    flowCompletion: null,
+  });
 
-setupBlockWatcher();
+  setupBlockWatcher();
 
-const openIconName = "template-plugin-open";
+  const openIconName = "template-plugin-open";
 
-logseq.provideStyle(css`
+  logseq.provideStyle(css`
     .${openIconName} {
-    opacity: 0.55;
-  font-size: 20px;
-  margin-top: 4px;
-}
+      opacity: 0.55;
+      font-size: 20px;
+      margin-top: 4px;
+    }
 
-.${openIconName}:hover {
+    .${openIconName}:hover {
       opacity: 0.9;
-  }
+    }
   `);
 
   logseq.App.registerUIItem("toolbar", {
-  key: openIconName,
-template: `
+    key: openIconName,
+    template: `
 <a data-on-click="show">
   <div class="${openIconName}">⚙️</div>
 </a>
@@ -372,7 +400,10 @@ template: `
 logseq.on("settings:changed", (settings) => {
   const proceedPayload = settings.proceedCompression;
   if (proceedPayload?.blockUuid && proceedPayload?.imageUrl) {
-    proceedWithCompression(proceedPayload.blockUuid as string, proceedPayload.imageUrl as string);
+    proceedWithCompression(
+      proceedPayload.blockUuid as string,
+      proceedPayload.imageUrl as string
+    );
     logseq.updateSettings({ proceedCompression: null });
   }
 
@@ -380,7 +411,7 @@ logseq.on("settings:changed", (settings) => {
   if (completionPayload?.blockUuid) {
     releaseBlock(
       completionPayload.blockUuid as string,
-      (completionPayload.lastImageUrl as string | undefined) ?? null,
+      (completionPayload.lastImageUrl as string | undefined) ?? null
     );
     logseq.updateSettings({ flowCompletion: null });
   }

@@ -1,7 +1,12 @@
 import React, { useRef, useState, useEffect } from "react";
 import type { IAsyncStorage } from "@logseq/libs/dist/modules/LSPlugin.Storage";
 import { logseq as PL } from "../package.json";
-import { useAppVisible, replaceFirstImageUrl, dataUrlToBlob, guessExtensionFromMime } from "./utils";
+import {
+  useAppVisible,
+  replaceFirstImageUrl,
+  dataUrlToBlob,
+  guessExtensionFromMime,
+} from "./utils";
 
 type BinaryFriendlyStorage = IAsyncStorage & {
   setItem(key: string, value: string | Uint8Array): Promise<void>;
@@ -48,8 +53,10 @@ const extractFileNameFromUrl = (url?: string) => {
 };
 
 const computeStorageKeyForAsset = (normalizedAssetPath: string) => {
-  if (!normalizedAssetPath || !normalizedAssetPath.startsWith("assets/")) return null;
-  const sanitize = (path: string) => path.replace(/\/+$/i, "").split("/").filter(Boolean);
+  if (!normalizedAssetPath || !normalizedAssetPath.startsWith("assets/"))
+    return null;
+  const sanitize = (path: string) =>
+    path.replace(/\/+$/i, "").split("/").filter(Boolean);
   const fromSegments = sanitize(pluginAssetsPrefix);
   const toSegments = sanitize(normalizedAssetPath);
   if (!toSegments.length) return null;
@@ -71,27 +78,39 @@ const saveBlobToAssets = async (
   blob: Blob,
   mimeHint?: string,
   sourceUrl?: string,
-  originalAssetUrl?: string,
+  originalAssetUrl?: string
 ) => {
   const storage = ensureAssetsStorage();
   const ext = guessExtensionFromMime(mimeHint || blob.type, sourceUrl);
   const normalizedAssetPath = normalizeAssetsRelativePath(originalAssetUrl);
-  const preferredRelativePath = normalizedAssetPath ? `../${normalizedAssetPath}` : null;
-  const traversalKey = normalizedAssetPath ? computeStorageKeyForAsset(normalizedAssetPath) : null;
-  const hasExtension = (name?: string | null) => !!name && /\.[a-z0-9]+$/i.test(name);
-  const originalFileName = extractFileNameFromUrl(originalAssetUrl || sourceUrl);
+  const preferredRelativePath = normalizedAssetPath
+    ? `../${normalizedAssetPath}`
+    : null;
+  const traversalKey = normalizedAssetPath
+    ? computeStorageKeyForAsset(normalizedAssetPath)
+    : null;
+  const hasExtension = (name?: string | null) =>
+    !!name && /\.[a-z0-9]+$/i.test(name);
+  const originalFileName = extractFileNameFromUrl(
+    originalAssetUrl || sourceUrl
+  );
   const fallbackFilename = hasExtension(originalFileName)
     ? (originalFileName as string)
     : `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
   const fallbackRelativePath = `../assets/storages/${PL.id}/${fallbackFilename}`;
   const payload = new Uint8Array(await blob.arrayBuffer());
 
+  debugger;
+
   if (preferredRelativePath && traversalKey) {
     try {
       await storage.setItem(traversalKey, payload);
       return preferredRelativePath;
     } catch (error) {
-      console.warn("Failed to write compressed image to original asset path:", error);
+      console.warn(
+        "Failed to write compressed image to original asset path:",
+        error
+      );
     }
   }
 
@@ -115,24 +134,42 @@ function App() {
         if (parentDoc) {
           const computedStyle = getComputedStyle(parentDoc.documentElement);
           return {
-            primaryBg: computedStyle.getPropertyValue('--ls-primary-background-color').trim() || '#ffffff',
-            primaryText: computedStyle.getPropertyValue('--ls-primary-text-color').trim() || '#000000',
-            primaryBtnBg: computedStyle.getPropertyValue('--ls-primary-button-background').trim() || '#3b82f6',
-            primaryBtnColor: computedStyle.getPropertyValue('--ls-primary-button-color').trim() || '#ffffff',
-            secondaryBtnBg: computedStyle.getPropertyValue('--ls-secondary-button-background').trim() || '#d1d5db',
-            secondaryBtnColor: computedStyle.getPropertyValue('--ls-secondary-button-color').trim() || '#374151',
+            primaryBg:
+              computedStyle
+                .getPropertyValue("--ls-primary-background-color")
+                .trim() || "#ffffff",
+            primaryText:
+              computedStyle
+                .getPropertyValue("--ls-primary-text-color")
+                .trim() || "#000000",
+            primaryBtnBg:
+              computedStyle
+                .getPropertyValue("--ls-primary-button-background")
+                .trim() || "#3b82f6",
+            primaryBtnColor:
+              computedStyle
+                .getPropertyValue("--ls-primary-button-color")
+                .trim() || "#ffffff",
+            secondaryBtnBg:
+              computedStyle
+                .getPropertyValue("--ls-secondary-button-background")
+                .trim() || "#d1d5db",
+            secondaryBtnColor:
+              computedStyle
+                .getPropertyValue("--ls-secondary-button-color")
+                .trim() || "#374151",
           };
         }
       } catch (e) {
-        console.warn('Failed to get theme vars from parent:', e);
+        console.warn("Failed to get theme vars from parent:", e);
       }
       return {
-        primaryBg: '#ffffff',
-        primaryText: '#000000',
-        primaryBtnBg: '#3b82f6',
-        primaryBtnColor: '#ffffff',
-        secondaryBtnBg: '#d1d5db',
-        secondaryBtnColor: '#374151',
+        primaryBg: "#ffffff",
+        primaryText: "#000000",
+        primaryBtnBg: "#3b82f6",
+        primaryBtnColor: "#ffffff",
+        secondaryBtnBg: "#d1d5db",
+        secondaryBtnColor: "#374151",
       };
     };
 
@@ -144,7 +181,7 @@ function App() {
       setConfirmationData(settings.confirmationData ?? null);
       setLoadingData(settings.loadingData ?? null);
     };
-    logseq.on('settings:changed', handler);
+    logseq.on("settings:changed", handler);
     // Initial check
     if (logseq.settings?.comparisonData) {
       setComparisonData(logseq.settings.comparisonData);
@@ -154,37 +191,40 @@ function App() {
       setLoadingData(logseq.settings.loadingData);
     }
     return () => {
-      logseq.off('settings:changed', handler);
+      logseq.off("settings:changed", handler);
     };
   }, []);
 
-
-
   const persistCompressedImage = async () => {
-    if (!comparisonData?.compressedUrl) throw new Error('No compressed image available');
-    const sourceType = (comparisonData.compressedSourceType ?? 'remote') as 'remote' | 'data-url';
+    if (!comparisonData?.compressedUrl)
+      throw new Error("No compressed image available");
+    const sourceType = (comparisonData.compressedSourceType ?? "remote") as
+      | "remote"
+      | "data-url";
     let blob: Blob;
-    if (sourceType === 'data-url') {
+    if (sourceType === "data-url") {
       blob = dataUrlToBlob(comparisonData.compressedUrl);
     } else {
       const response = await fetch(comparisonData.compressedUrl);
-      if (!response.ok) throw new Error('Failed to download compressed image');
+      if (!response.ok) throw new Error("Failed to download compressed image");
       blob = await response.blob();
     }
     return saveBlobToAssets(
       blob,
       comparisonData.compressedMime,
       comparisonData.compressedUrl,
-      comparisonData.originalUrl,
+      comparisonData.originalUrl
     );
   };
 
-  const handleSelectImage = async (choice: 'original' | 'compressed') => {
+  const handleSelectImage = async (choice: "original" | "compressed") => {
     if (!comparisonData) return;
     try {
       const blockUuid = comparisonData.blockUuid;
-      const isOriginal = choice === 'original';
-      const finalUrl = isOriginal ? comparisonData.originalUrl : await persistCompressedImage();
+      const isOriginal = choice === "original";
+      const finalUrl = isOriginal
+        ? comparisonData.originalUrl
+        : await persistCompressedImage();
 
       logseq.updateSettings({
         comparisonData: null,
@@ -201,7 +241,10 @@ function App() {
       logseq.hideMainUI();
     } catch (error) {
       console.error(error);
-      logseq.UI.showMsg(`Failed to insert image: ${(error as Error).message}`, 'error');
+      logseq.UI.showMsg(
+        `Failed to insert image: ${(error as Error).message}`,
+        "error"
+      );
     }
   };
 
@@ -222,71 +265,143 @@ function App() {
     if (!confirmationData) return;
     logseq.updateSettings({
       confirmationData: null,
-      flowCompletion: { blockUuid: confirmationData.blockUuid, lastImageUrl: confirmationData.imageUrl },
+      flowCompletion: {
+        blockUuid: confirmationData.blockUuid,
+        lastImageUrl: confirmationData.imageUrl,
+      },
     });
     setConfirmationData(null);
     logseq.hideMainUI();
   };
 
   if (visible) {
-  if (comparisonData) {
-  return (
-  <main
-  className="backdrop-filter backdrop-blur-md fixed inset-0 flex items-center justify-center"
-  >
-  <div ref={innerRef} style={{ background: themeVars.primaryBg, color: themeVars.primaryText, padding: '1.5rem', borderRadius: '0.5rem', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)', maxWidth: '56rem', width: '100%', margin: '0 1rem' }}>
-  <h2 className="text-xl font-bold mb-4">Choose Image</h2>
-  <div className="flex space-x-4">
-  <div className="flex-1 text-center">
-  <h3 className="font-semibold">Original ({comparisonData.originalSize})</h3>
-  <img src={comparisonData.originalPreviewUrl || comparisonData.originalUrl} alt="Original" className="max-w-full h-auto border rounded" />
-  <button
-  onClick={() => handleSelectImage('original')}
-  style={{ marginTop: '0.5rem', padding: '0.5rem 1rem', background: themeVars.primaryBtnBg, color: themeVars.primaryBtnColor, borderRadius: '0.25rem' }}
-  >
-  Select Original
-  </button>
-  </div>
-  <div className="flex-1 text-center">
-  <h3 className="font-semibold">Compressed ({comparisonData.compressedSize})</h3>
-  <img src={comparisonData.compressedPreviewUrl || comparisonData.compressedUrl} alt="Compressed" className="max-w-full h-auto border rounded" />
-  <button
-  onClick={() => handleSelectImage('compressed')}
-  style={{ marginTop: '0.5rem', padding: '0.5rem 1rem', background: themeVars.primaryBtnBg, color: themeVars.primaryBtnColor, borderRadius: '0.25rem' }}
-  >
-  Select Compressed
-  </button>
-  </div>
-  </div>
-  </div>
-  </main>
-  );
-  } else if (confirmationData) {
-  return (
-  <main
-  className="backdrop-filter backdrop-blur-md fixed inset-0 flex items-center justify-center"
-  >
-  <div ref={innerRef} style={{ background: themeVars.primaryBg, color: themeVars.primaryText, padding: '1.5rem', borderRadius: '0.5rem', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)', maxWidth: '28rem', width: '100%', margin: '0 1rem' }}>
-  <h2 className="text-xl font-bold mb-2">Compress Image?</h2>
-    <div className="mb-4 space-y-3">
-      <p>Do you want to compress this image before inserting?</p>
-      <code style={{ display: 'block', wordBreak: 'break-all', fontSize: '0.85rem', color: themeVars.secondaryBtnColor }}>
-        {confirmationData.imageUrl}
-      </code>
-    </div>
-      <div className="flex justify-end space-x-2">
-          <button
-          onClick={handleCancelCompression}
-          style={{ padding: '0.5rem 1rem', background: themeVars.secondaryBtnBg, color: themeVars.secondaryBtnColor, borderRadius: '0.25rem' }}
+    if (comparisonData) {
+      return (
+        <main className="backdrop-filter backdrop-blur-md fixed inset-0 flex items-center justify-center">
+          <div
+            ref={innerRef}
+            style={{
+              background: themeVars.primaryBg,
+              color: themeVars.primaryText,
+              padding: "1.5rem",
+              borderRadius: "0.5rem",
+              boxShadow:
+                "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+              maxWidth: "56rem",
+              width: "100%",
+              margin: "0 1rem",
+            }}
           >
-          Skip
-          </button>
-          <button
-          onClick={handleConfirmCompression}
-          style={{ padding: '0.5rem 1rem', background: themeVars.primaryBtnBg, color: themeVars.primaryBtnColor, borderRadius: '0.25rem' }}
+            <h2 className="text-xl font-bold mb-4">Choose Image</h2>
+            <div className="flex space-x-4">
+              <div className="flex-1 text-center">
+                <h3 className="font-semibold">
+                  Original ({comparisonData.originalSize})
+                </h3>
+                <img
+                  src={
+                    comparisonData.originalPreviewUrl ||
+                    comparisonData.originalUrl
+                  }
+                  alt="Original"
+                  className="max-w-full h-auto border rounded"
+                />
+                <button
+                  onClick={() => handleSelectImage("original")}
+                  style={{
+                    marginTop: "0.5rem",
+                    padding: "0.5rem 1rem",
+                    background: themeVars.primaryBtnBg,
+                    color: themeVars.primaryBtnColor,
+                    borderRadius: "0.25rem",
+                  }}
+                >
+                  Select Original
+                </button>
+              </div>
+              <div className="flex-1 text-center">
+                <h3 className="font-semibold">
+                  Compressed ({comparisonData.compressedSize})
+                </h3>
+                <img
+                  src={
+                    comparisonData.compressedPreviewUrl ||
+                    comparisonData.compressedUrl
+                  }
+                  alt="Compressed"
+                  className="max-w-full h-auto border rounded"
+                />
+                <button
+                  onClick={() => handleSelectImage("compressed")}
+                  style={{
+                    marginTop: "0.5rem",
+                    padding: "0.5rem 1rem",
+                    background: themeVars.primaryBtnBg,
+                    color: themeVars.primaryBtnColor,
+                    borderRadius: "0.25rem",
+                  }}
+                >
+                  Select Compressed
+                </button>
+              </div>
+            </div>
+          </div>
+        </main>
+      );
+    } else if (confirmationData) {
+      return (
+        <main className="backdrop-filter backdrop-blur-md fixed inset-0 flex items-center justify-center">
+          <div
+            ref={innerRef}
+            style={{
+              background: themeVars.primaryBg,
+              color: themeVars.primaryText,
+              padding: "1.5rem",
+              borderRadius: "0.5rem",
+              boxShadow:
+                "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+              maxWidth: "28rem",
+              width: "100%",
+              margin: "0 1rem",
+            }}
           >
-          Compress
-          </button>
+            <h2 className="text-xl font-bold mb-2">Compress Image?</h2>
+            <div className="mb-4 space-y-3">
+              <p>Do you want to compress this image before inserting?</p>
+              <code
+                style={{
+                  display: "block",
+                  wordBreak: "break-all",
+                  fontSize: "0.85rem",
+                  color: themeVars.secondaryBtnColor,
+                }}
+              >
+                {confirmationData.imageUrl}
+              </code>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={handleCancelCompression}
+                style={{
+                  padding: "0.5rem 1rem",
+                  background: themeVars.secondaryBtnBg,
+                  color: themeVars.secondaryBtnColor,
+                  borderRadius: "0.25rem",
+                }}
+              >
+                Skip
+              </button>
+              <button
+                onClick={handleConfirmCompression}
+                style={{
+                  padding: "0.5rem 1rem",
+                  background: themeVars.primaryBtnBg,
+                  color: themeVars.primaryBtnColor,
+                  borderRadius: "0.25rem",
+                }}
+              >
+                Compress
+              </button>
             </div>
           </div>
         </main>
@@ -294,7 +409,21 @@ function App() {
     } else if (loadingData) {
       return (
         <main className="backdrop-filter backdrop-blur-md fixed inset-0 flex items-center justify-center">
-          <div ref={innerRef} style={{ background: themeVars.primaryBg, color: themeVars.primaryText, padding: '1.5rem', borderRadius: '0.5rem', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)', maxWidth: '20rem', width: '100%', margin: '0 1rem', textAlign: 'center' }}>
+          <div
+            ref={innerRef}
+            style={{
+              background: themeVars.primaryBg,
+              color: themeVars.primaryText,
+              padding: "1.5rem",
+              borderRadius: "0.5rem",
+              boxShadow:
+                "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+              maxWidth: "20rem",
+              width: "100%",
+              margin: "0 1rem",
+              textAlign: "center",
+            }}
+          >
             <h2 className="text-xl font-bold mb-2">Compressing...</h2>
             <p>Please wait while we optimize your image.</p>
           </div>
